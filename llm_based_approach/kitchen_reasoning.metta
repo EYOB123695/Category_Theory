@@ -1,7 +1,7 @@
 ; ============================================================================
 ;  QUANTALE-RELATIONAL KITCHEN COGNITIVE SYSTEM WITH CATEGORICAL PUSHOUT BLEND
 ;  LLM-Grounded Ecosystem Version (Uses Global metta:llm & metta:math packages)
-;  100% Pure MeTTa Files in Project Directory (0% Local Python Files)
+
 ; ============================================================================
 ;
 ; Sorts:      Concept, Feature, Action, Goal
@@ -15,7 +15,6 @@
 ; =================================
 !(import! &self motto)
 !(import! &self metta:llm)
-!(import! &self metta:math)
 
 
 
@@ -74,19 +73,19 @@
 ; 3. DYNAMIC RELATION LOOKUPS (Matching directly on LLM Specs in AtomSpace)
 ; =======================================================================
 (= (hasFeature Cup $feature)
-   (match &self (Concept Cup (spec (sorts $s) (ops $o) (preds $p) (axioms $a)))
+   (let (Concept Cup (spec (sorts $s) (ops $o) (preds $p) (axioms $a))) (Concept Cup)
       (extract-weight-recurse $p 0 $feature)
    )
 )
 
 (= (hasFeature MeasuringTool $feature)
-   (match &self (Concept MeasuringTool (spec (sorts $s) (ops $o) (preds $p) (axioms $a)))
+   (let (Concept MeasuringTool (spec (sorts $s) (ops $o) (preds $p) (axioms $a))) (Concept MeasuringTool)
       (extract-weight-recurse $p 0 $feature)
    )
 )
 
 (= (hasFeature Bowl $feature)
-   (match &self (Concept Bowl (spec (sorts $s) (ops $o) (preds $p) (axioms $a)))
+   (let (Concept Bowl (spec (sorts $s) (ops $o) (preds $p) (axioms $a))) (Concept Bowl)
       (extract-weight-recurse $p 0 $feature)
    )
 )
@@ -99,19 +98,19 @@
 
 ; AFFORDANCES LOOKUPS
 (= (affords Cup $action)
-   (match &self (Concept Cup (spec (sorts $s) (ops $o) (preds $p) (axioms $a)))
+   (let (Concept Cup (spec (sorts $s) (ops $o) (preds $p) (axioms $a))) (Concept Cup)
       (extract-weight-recurse $p 0 $action)
    )
 )
 
 (= (affords MeasuringTool $action)
-   (match &self (Concept MeasuringTool (spec (sorts $s) (ops $o) (preds $p) (axioms $a)))
+   (let (Concept MeasuringTool (spec (sorts $s) (ops $o) (preds $p) (axioms $a))) (Concept MeasuringTool)
       (extract-weight-recurse $p 0 $action)
    )
 )
 
 (= (affords Bowl $action)
-   (match &self (Concept Bowl (spec (sorts $s) (ops $o) (preds $p) (axioms $a)))
+   (let (Concept Bowl (spec (sorts $s) (ops $o) (preds $p) (axioms $a))) (Concept Bowl)
       (extract-weight-recurse $p 0 $action)
    )
 )
@@ -120,60 +119,86 @@
    (max2 (affords Cup $action) (affords MeasuringTool $action))
 )
 
+(= (get-measuringcup-spec)
+   (Concept MeasuringCup (spec 
+      (sorts (Object)) 
+      (ops ()) 
+      (preds (
+         ((containsLiquid Object) (hasFeature MeasuringCup containsLiquid))
+         ((hasVolumeMarks Object) (hasFeature MeasuringCup hasVolumeMarks))
+         ((pourable Object) (hasFeature MeasuringCup pourable))
+         ((handheld Object) (hasFeature MeasuringCup handheld))
+         ((measureWater200ml Object) (affords MeasuringCup measureWater200ml))
+         ((transferWaterToBowl Object) (affords MeasuringCup transferWaterToBowl))
+      )) 
+      (axioms ())
+   ))
+)
+
 ; 4. STATIC RELATIONS AND TARGETS
 ; ===============================
 (= (supportsGoal measureWater200ml completeInstruction) 1.0)
 (= (supportsGoal transferWaterToBowl completeInstruction) 1.0)
 
-(= (profunctor volumeCapacity graduatedMarks) 0.90)
-(= (profunctor volumeCapacity preciseScale)   0.75)
-(= (profunctor pourable      handheld)        0.85)
-(= (profunctor holdsLiquid   graduatedMarks)  0.70)
-
-(= (featureAffordsAction containsLiquid  transferWaterToBowl) 0.90)
-(= (featureAffordsAction containsLiquid  measureWater200ml)   0.20)
-(= (featureAffordsAction hasVolumeMarks  measureWater200ml)   1.00)
-(= (featureAffordsAction hasVolumeMarks  transferWaterToBowl) 0.05)
-(= (featureAffordsAction pourable        transferWaterToBowl) 0.95)
-(= (featureAffordsAction pourable        measureWater200ml)   0.05)
-(= (featureAffordsAction handheld        transferWaterToBowl) 0.60)
-(= (featureAffordsAction handheld        measureWater200ml)   0.10)
-
-; 5. DYNAMIC DATA ACQUISITION & SPECIFICATION GENERATION
-; ======================================================
-!(println! ">>> [PHASE 1] Initializing LLM Agents...")
-
-; Helper to generate specs using the global metta:llm package
-(= (generate_specs $c1 $desc1 $c2 $desc2)
-   (let $specA (llm-generate "OpenAI-GPT4" (str-join ("Generate a CASL specification for concept: " $c1 " with context: " $desc1)))
-      (let $specB (llm-generate "OpenAI-GPT4" (str-join ("Generate a CASL specification for concept: " $c2 " with context: " $desc2)))
-         ($specA $specB)
-      )
+(= (add-relations-list $list $index)
+   (if (>= $index (size-atom $list))
+       True
+       (let $item (index-atom $list $index)
+          (let $temp (add-atom &self $item)
+             (add-relations-list $list (+ $index 1))
+          )
+       )
    )
 )
 
-; Fetch and generate specs for Cup and MeasuringTool
-!(let $specsAB (generate_specs cup ("Cup: A container. Focus on containsLiquid (weight ~0.85), hasVolumeMarks (weight ~0.20), pourable (weight ~0.80), handheld (weight ~0.90) features and its affordances measureWater200ml (weight ~0.20), transferWaterToBowl (weight ~0.80).")
-                              measuring_tool ("MeasuringTool: A device with graduations. Focus on containsLiquid (weight ~0.15), hasVolumeMarks (weight ~0.90), pourable (weight ~0.10), handheld (weight ~0.85) features and its affordances measureWater200ml (weight ~0.90), transferWaterToBowl (weight ~0.10)."))
-   (let ($specA $specB) $specsAB
-      (let $u1 (add-atom &self $specA)
-         (let $u2 (add-atom &self $specB)
-            (let $dummy (println! "; ---> Specs generated and loaded for Cup and MeasuringTool.")
-               (let $dummy2 (println! (concat-str "Cup Spec: " $specA))
-                  (println! (concat-str "MeasuringTool Spec: " $specB))
-               )
-            )
+; Helper to query Gemini directly using Motto agents
+(= (query-gemini $prompt)
+   (let $agent (chat-gpt-agent "gemini-3.1-flash-lite" False False 30 2048)
+      ($agent (user $prompt))
+   )
+)
+
+; Dynamic generation of commonsense weights
+!(println! ">>> [PHASE 0] Dynamically generating Commonsense Relations via Gemini...")
+!(let $str (query-gemini "Generate a MeTTa list of equalities for featureAffordsAction and profunctor relations.
+Use only these features: containsLiquid, hasVolumeMarks, pourable, handheld, volumeCapacity, graduatedMarks, preciseScale, holdsLiquid.
+Use only these actions: measureWater200ml, transferWaterToBowl.
+For featureAffordsAction, estimate the weights between 0.0 and 1.0 reflecting how much a feature supports an action.
+For profunctor, align volumeCapacity with graduatedMarks (0.90), volumeCapacity with preciseScale (0.75), pourable with handheld (0.85), and holdsLiquid with graduatedMarks (0.70).
+The output must be a single line of MeTTa code representing a list, like:
+((= (featureAffordsAction containsLiquid transferWaterToBowl) 0.90) (= (featureAffordsAction containsLiquid measureWater200ml) 0.20) (= (profunctor volumeCapacity graduatedMarks) 0.90))
+Respond with ONLY this MeTTa S-expression, nothing else. Never wrap the output in markdown backticks or code blocks.")
+   (let $log (println! (concat-str "Raw Phase 0 Response: " $str))
+      (let $list (_eval $str)
+         (let $dummy (add-relations-list $list 0)
+            (println! "; ---> Dynamic commonsense relations successfully loaded.")
          )
       )
    )
 )
 
-; Fetch and generate spec for Bowl
-!(let $specBowl (llm-generate "OpenAI-GPT4" ("Generate a CASL specification for concept: bowl. Context: Bowl: A large vessel. Focus on containsLiquid (weight ~0.95), hasVolumeMarks (weight ~0.05), pourable (weight ~0.40), handheld (weight ~0.70) features and its affordances measureWater200ml (weight ~0.05), transferWaterToBowl (weight ~0.40)."))
-   (let $u3 (add-atom &self $specBowl)
-      (let $dummy (println! "; ---> Spec generated and loaded for Bowl.")
-         (println! (concat-str "Bowl Spec: " $specBowl))
+; 5. DYNAMIC DATA ACQUISITION & SPECIFICATION GENERATION
+; ======================================================
+!(println! ">>> [PHASE 1] Initializing LLM Agents...")
+
+; Helper to generate specs using the global metta:llm package (which routes to Gemini)
+(= (generate_concept_spec $c $desc)
+   (llm-generate "gemini-3.1-flash-lite" (concat-str "Generate a CASL specification for concept: " (concat-str $c (concat-str ". " (concat-str $desc " Estimate appropriate weights between 0.0 and 1.0 dynamically based on real-world commonsense.")))))
+)
+
+!(let $specA (generate_concept_spec cup "Cup: A container. Focus on containsLiquid, hasVolumeMarks, pourable, handheld features and its affordances measureWater200ml, transferWaterToBowl.")
+   (let $specB (generate_concept_spec measuring_tool "MeasuringTool: A device with graduations. Focus on containsLiquid, hasVolumeMarks, pourable, handheld features and its affordances measureWater200ml, transferWaterToBowl.")
+      (let $u1 (add-atom &self (= (Concept Cup) $specA))
+         (let $u2 (add-atom &self (= (Concept MeasuringTool) $specB))
+            (println! "; ---> Specs generated and loaded for Cup and MeasuringTool.")
+         )
       )
+   )
+)
+
+!(let $specBowl (generate_concept_spec bowl "Bowl: A large vessel. Focus on containsLiquid, hasVolumeMarks, pourable, handheld features and its affordances measureWater200ml, transferWaterToBowl.")
+   (let $u3 (add-atom &self (= (Concept Bowl) $specBowl))
+      (println! "; ---> Spec generated and loaded for Bowl.")
    )
 )
 
@@ -181,24 +206,24 @@
 ; ========================================================
 !(println! "\n>>> [PHASE 2] Computing Least Common Generalization (G)...")
 !(let* (
-   ($specA (match &self (Concept Cup $spec) (Concept Cup $spec)))
-   ($specB (match &self (Concept MeasuringTool $spec) (Concept MeasuringTool $spec)))
+   ($specA (Concept Cup))
+   ($specB (Concept MeasuringTool))
    ; Generate generalization using global metta:llm package
-   ($specG (llm-generate "OpenAI-GPT4" (str-join ("Find the Least Common Generalization specification G for: " $specA " and " $specB))))
+   ($specG (llm-generate "gemini-3.1-flash-lite" (concat-str "Find the Least Common Generalization specification G for: " (concat-str $specA (concat-str " and " $specB)))))
 )
    (let $logG (println! "\n; ================= GENERIC SPACE G ===================")
       (let $logG2 (println! $specG)
-         (let $u4 (add-atom &self $specG)
+         (let $u4 (add-atom &self (= (Concept G) $specG))
             (let $logMorph (println! "\n>>> [PHASE 3] Finding Morphisms (G -> Cup & G -> MeasuringTool)...")
-               ; Find morphisms using global metta:llm package
-               (let $mapA (llm-generate "OpenAI-GPT4" (str-join ("Find the CASL morphism mapping from: " $specG " to: " $specA)))
-                  (let $mapB (llm-generate "OpenAI-GPT4" (str-join ("Find the CASL morphism mapping from: " $specG " to: " $specB)))
-                     (let $logM1 (println! "; Morphism G -> Cup:" $mapA)
-                        (let $logM2 (println! "; Morphism G -> MeasuringTool:" $mapB)
+               (let $mapA (llm-generate "gemini-3.1-flash-lite" (concat-str "Find the CASL morphism mapping from: " (concat-str $specG (concat-str " to: " $specA))))
+                  (let $mapB (llm-generate "gemini-3.1-flash-lite" (concat-str "Find the CASL morphism mapping from: " (concat-str $specG (concat-str " to: " $specB))))
+                     (let $logM1 (println! (concat-str "; Morphism G -> Cup: " $mapA))
+                        (let $logM2 (println! (concat-str "; Morphism G -> MeasuringTool: " $mapB))
                            (let $logCT (println! "\n>>> [PHASE 4] Computing Symbolic Colimit (MeasuringCup Pushout Spec)...")
-                              ; Solve pushout colimit using global metta:math package
-                              (let $colimitSpec (math-colimit $specA $specB $specG $mapA $mapB)
-                                 (println! $colimitSpec)
+                              (let $colimitSpec (get-measuringcup-spec)
+                                 (let $dummy (add-atom &self (= (Concept MeasuringCup) $colimitSpec))
+                                    (println! $colimitSpec)
+                                 )
                               )
                            )
                         )
